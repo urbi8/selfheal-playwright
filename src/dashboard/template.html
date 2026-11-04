@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Self-Heal Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; color: #333; }
+    .header { background: #1a1a2e; color: white; padding: 24px 32px; }
+    .header h1 { font-size: 24px; margin-bottom: 4px; }
+    .header .subtitle { color: #aaa; font-size: 14px; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+    .stat-card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .stat-card .label { font-size: 13px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-card .value { font-size: 32px; font-weight: 700; margin-top: 4px; }
+    .stat-card .value.success { color: #22c55e; }
+    .stat-card .value.danger { color: #ef4444; }
+    .stat-card .value.info { color: #3b82f6; }
+    .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+    .chart-card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .chart-card h3 { margin-bottom: 16px; font-size: 16px; }
+    .chart-container { position: relative; height: 260px; }
+    .table-card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 24px; }
+    .table-card h3 { margin-bottom: 16px; font-size: 16px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th { text-align: left; padding: 10px 12px; border-bottom: 2px solid #e5e7eb; color: #666; font-weight: 600; }
+    td { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; }
+    tr:hover td { background: #f9fafb; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+    .badge.success { background: #dcfce7; color: #166534; }
+    .badge.failure { background: #fee2e2; color: #991b1b; }
+    .badge.aria { background: #dbeafe; color: #1e40af; }
+    .badge.vision { background: #f3e8ff; color: #6b21a8; }
+    .mono { font-family: 'SF Mono', Monaco, monospace; font-size: 13px; }
+    .footer { text-align: center; padding: 24px; color: #999; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Self-Heal Dashboard</h1>
+    <div class="subtitle">Generated: {{generatedAt}}</div>
+  </div>
+
+  <div class="container">
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="label">Total Events</div>
+        <div class="value info">{{accuracy.total}}</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Successfully Healed</div>
+        <div class="value success">{{accuracy.healed}}</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Failed to Heal</div>
+        <div class="value danger">{{accuracy.failed}}</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Accuracy</div>
+        <div class="value {{#if accuracyHigh}}success{{else}}danger{{/if}}">{{accuracyPercent}}%</div>
+      </div>
+    </div>
+
+    <div class="charts-row">
+      <div class="chart-card">
+        <h3>Healing Accuracy</h3>
+        <div class="chart-container">
+          <canvas id="accuracyChart"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <h3>Failure Classifications</h3>
+        <div class="chart-container">
+          <canvas id="classificationChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="charts-row">
+      <div class="chart-card">
+        <h3>Timeline (Last 30 Days)</h3>
+        <div class="chart-container">
+          <canvas id="timelineChart"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <h3>Top Broken Selectors</h3>
+        <div class="chart-container">
+          <canvas id="brokenSelectorsChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <h3>Recent Healing Events</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Original Selector</th>
+            <th>Healed Selector</th>
+            <th>Result</th>
+            <th>Stage</th>
+            <th>Duration</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#each recentEvents}}
+          <tr>
+            <td>{{this.timestamp}}</td>
+            <td class="mono">{{this.originalSelector}}</td>
+            <td class="mono">{{this.healedSelector}}</td>
+            <td><span class="badge {{#if this.success}}success{{else}}failure{{/if}}">{{#if this.success}}Healed{{else}}Failed{{/if}}</span></td>
+            <td><span class="badge {{this.stage}}">{{this.stage}}</span></td>
+            <td>{{this.duration}}ms</td>
+          </tr>
+          {{/each}}
+          {{#unless recentEvents}}
+          <tr><td colspan="6" style="text-align:center;color:#999;">No healing events recorded yet.</td></tr>
+          {{/unless}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="footer">
+    Self-Heal Playwright Dashboard &middot; Data from {{accuracy.total}} healing events
+  </div>
+
+  <script>
+    const dashboardData = {{{dataJson}}};
+
+    // Accuracy Doughnut
+    new Chart(document.getElementById('accuracyChart'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Healed', 'Failed'],
+        datasets: [{
+          data: [dashboardData.accuracy.healed, dashboardData.accuracy.failed],
+          backgroundColor: ['#22c55e', '#ef4444'],
+          borderWidth: 0,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom' } },
+      },
+    });
+
+    // Classification Pie
+    const classLabels = dashboardData.classificationSummary.map(c => c.category);
+    const classData = dashboardData.classificationSummary.map(c => c.count);
+    new Chart(document.getElementById('classificationChart'), {
+      type: 'pie',
+      data: {
+        labels: classLabels.length ? classLabels : ['No data'],
+        datasets: [{
+          data: classData.length ? classData : [1],
+          backgroundColor: classData.length ? ['#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'] : ['#e5e7eb'],
+          borderWidth: 0,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom' } },
+      },
+    });
+
+    // Timeline Stacked Bar
+    const timeLabels = dashboardData.timeline.map(t => t.date);
+    new Chart(document.getElementById('timelineChart'), {
+      type: 'bar',
+      data: {
+        labels: timeLabels.length ? timeLabels : ['No data'],
+        datasets: [
+          {
+            label: 'Healed',
+            data: dashboardData.timeline.map(t => t.healed),
+            backgroundColor: '#22c55e',
+          },
+          {
+            label: 'Failed',
+            data: dashboardData.timeline.map(t => t.failed),
+            backgroundColor: '#ef4444',
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } },
+        plugins: { legend: { position: 'bottom' } },
+      },
+    });
+
+    // Top Broken Selectors Horizontal Bar
+    const brokenLabels = dashboardData.topBrokenSelectors.map(s => s.selector.length > 30 ? s.selector.slice(0, 30) + '...' : s.selector);
+    const brokenData = dashboardData.topBrokenSelectors.map(s => s.failureCount);
+    new Chart(document.getElementById('brokenSelectorsChart'), {
+      type: 'bar',
+      data: {
+        labels: brokenLabels.length ? brokenLabels : ['No data'],
+        datasets: [{
+          label: 'Failures',
+          data: brokenData.length ? brokenData : [0],
+          backgroundColor: '#f59e0b',
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        indexAxis: 'y',
+        plugins: { legend: { display: false } },
+        scales: { x: { beginAtZero: true } },
+      },
+    });
+  </script>
+</body>
+</html>

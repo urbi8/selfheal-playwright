@@ -1,0 +1,8 @@
+node_modules/
+dist/
+reports/
+.selfheal/
+.env
+test-results/
+playwright-report/
+blob-report/
